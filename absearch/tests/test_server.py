@@ -1,15 +1,13 @@
 import os
 from collections import defaultdict
-import shutil
 import json
-import time
 import sys
 
 import gevent
 
 from absearch import __version__
 from absearch.tests.support import (runServers, stopServers, get_app, capture,
-                                    test_config, populate_S3)
+                                    test_config)
 from absearch.server import reload, main, close
 
 
@@ -184,45 +182,6 @@ def test_start_time():
     res = app.get(path + '/foo23542').json
     assert res['settings']['searchDefault'] != 'Google2'
 
-    # let's change the data
-    config = app.app._config
-    datadir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
-    datafile = os.path.join(datadir, config['absearch']['config'])
-
-    # save a copy
-    shutil.copyfile(datafile, datafile + '.saved')
-    with open(datafile) as f:
-        data = json.loads(f.read())
-
-    # change the start time so it's activated now
-    filters = data['locales']['fr-BE']['BE']['tests']['foo23542']['filters']
-    filters['startTime'] = time.time() - 10
-
-    try:
-        # save the new data
-        with open(datafile, 'w') as f:
-            f.write(json.dumps(data))
-
-        with capture():
-            # reload S3
-            populate_S3()
-
-            # reload the app
-            reload()
-
-        # now it has to be foo23542
-        res = app.get(path).json
-        assert res['settings']['searchDefault'] == 'Google2', res
-    finally:
-        # back to original
-        os.rename(datafile + '.saved', datafile)
-        with capture():
-            # reload S3
-            populate_S3()
-
-            # reload the app
-            reload()
-
 
 def test_unexistant_territory():
     app = get_app()
@@ -380,7 +339,6 @@ def test_reload():
     config['absearch']['backend'] = 'directory'
     config['absearch']['counter'] = 'memory'
     datadir = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
-    config.add_section('directory')
     config['directory']['path'] = datadir
 
     # save new config
